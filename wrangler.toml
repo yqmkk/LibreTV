@@ -1,0 +1,6 @@
+name = "libretv"  # 您的项目名，随意但唯一
+compatibility_date = "2025-12-30"
+
+[assets]
+directory = "."  # 或 "./dist" 如果您有 build 输出目录；如果是纯 HTML 项目，直接用 "."
+not_found_handling = "single-page-application"  # SPA 模式，404 时返回 index.html（适合前端路由）
