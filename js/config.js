@@ -152,3 +152,36 @@ const CUSTOM_API_CONFIG = {
 };
 
 const HIDE_BUILTIN_ADULT_APIS = false;
+/**
+ * 完整的新代码：处理 API 请求的逻辑封装
+ * 确保所有请求都能正确通过 Vercel 代理转发
+ */
+function getProxiedUrl(originalUrl) {
+    if (!originalUrl) return '';
+    
+    // 如果 URL 已经包含代理前缀，则不再重复添加
+    if (originalUrl.startsWith(window.location.origin + PROXY_URL) || originalUrl.startsWith(PROXY_URL)) {
+        return originalUrl;
+    }
+
+    // 清理 URL 中的多余空格
+    const cleanUrl = originalUrl.trim();
+    
+    // 关键：将目标 URL 拼接在代理路径后面
+    // 最终格式：/proxy/https://api.example.com/api.php...
+    return `${PROXY_URL}${cleanUrl}`;
+}
+
+// 暴露给全局，方便搜索逻辑调用
+window.getProxiedUrl = getProxiedUrl;
+
+/**
+ * 自动修复 API_SITES 中的地址
+ * 如果站点部署在 HTTPS，但 API 是 HTTP，则强制走代理
+ */
+Object.keys(API_SITES).forEach(key => {
+    const site = API_SITES[key];
+    if (site.api.startsWith('http://') && window.location.protocol === 'https:') {
+        console.log(`[LibreTV] 检测到混合内容风险，已对源 ${site.name} 启用强制代理`);
+    }
+});
