@@ -1,87 +1,92 @@
 // ==========================================
-// 全局常量配置
+// 1. 全局基础配置
 // ==========================================
-const PROXY_URL = '/proxy/';    // 适用于 Cloudflare, Netlify, Vercel (带重写)
+const PROXY_URL = '/proxy/';    // 建议确保 Vercel/Cloudflare 已配置反向代理
 const SEARCH_HISTORY_KEY = 'videoSearchHistory';
 const MAX_HISTORY_ITEMS = 5;
 
-// 密码保护配置
 const PASSWORD_CONFIG = {
     localStorageKey: 'passwordVerified',
-    verificationTTL: 90 * 24 * 60 * 60 * 1000  // 90天
+    verificationTTL: 90 * 24 * 60 * 60 * 1000  // 90天免登录
 };
 
-// 网站信息配置
 const SITE_CONFIG = {
     name: 'LibreTV',
     url: 'https://libretv.is-an.org',
     description: '免费在线视频搜索与观看平台',
     logo: 'image/logo.png',
-    version: '1.0.3'
+    version: '1.0.4' // 建议升级版本号
 };
 
 // ==========================================
-// API 站点配置定义
+// 2. API 站点管理逻辑
 // ==========================================
 
-// 初始 API 站点
+// 基础源 (默认保留)
 let API_SITES = {
     testSource: {
         api: 'https://www.example.com/api.php/provide/vod',
-        name: '空内容测试源',
+        name: '待命测试源',
         adult: false
     }
 };
 
-// 2025年最新 API 站点 (注意：请确保 LibreTV 支持这些格式)
+// 2025年最新有效源
 const LATEST_API_SITES_2025 = {
     fantaiying: { 
         api: 'http://www.饭太硬.com/tv', 
-        name: '饭太硬（2025稳定单仓）', 
-        detail: 'http://www.饭太硬.com' 
+        name: '饭太硬（2025稳定单仓）'
     },
     feimao: { 
         api: 'http://肥猫.com/', 
-        name: '肥猫（资源最全）', 
-        detail: 'http://肥猫.com' 
+        name: '肥猫（资源全/速度快）'
     },
     jisu: { 
         api: 'https://jszyapi.com/api.php/provide/vod', 
-        name: '极速资源（标准接口）', 
-        detail: 'https://jszyapi.com' 
+        name: '极速资源（标准V10）'
     },
     ffzy: { 
         api: 'https://api.ffzyapi.com/api.php/provide/vod', 
-        name: '非凡资源（标准接口）', 
-        detail: '' 
+        name: '非凡资源' 
+    },
+    sdzy: { 
+        api: 'https://sdzyapi.com/api.php/provide/vod', 
+        name: '闪电资源' 
     }
 };
 
 /**
- * 定义合并方法：修复原本未定义直接调用的错误
+ * 核心修复：定义合并函数
+ * 将新源安全地注入 API_SITES
  */
 function extendAPISites(newSites) {
-    if (typeof newSites === 'object') {
-        API_SITES = Object.assign(API_SITES, newSites);
+    if (!newSites || typeof newSites !== 'object') return;
+    
+    // 合并对象
+    API_SITES = Object.assign({}, API_SITES, newSites);
+    
+    // 清理无用的占位符源
+    if (API_SITES.testSource && API_SITES.testSource.api.includes('example.com')) {
+        delete API_SITES.testSource;
     }
+    
+    console.log('LibreTV: API Sites Extended Successfully.');
 }
 
-// 执行合并
+// 执行合并并挂载到全局
 extendAPISites(LATEST_API_SITES_2025);
-
-// 暴露到全局（供其他脚本调用）
 window.API_SITES = API_SITES;
 window.extendAPISites = extendAPISites;
 
 // ==========================================
-// 功能参数配置
+// 3. 搜索与播放性能配置
 // ==========================================
 
 const AGGREGATED_SEARCH_CONFIG = {
     enabled: true,
-    timeout: 8000,
-    maxResults: 10000,
-    parallelRequests: true,
+    timeout: 10000,           // 增加到10秒防止网络抖动
+    maxResults: 50,           // 限制前端单次渲染数量，防止卡顿
+    parallelRequests: true,   // 启用并行搜索
     showSourceBadges: true
 };
 
@@ -89,16 +94,16 @@ const API_CONFIG = {
     search: {
         path: '?ac=videolist&wd=',
         pagePath: '?ac=videolist&wd={query}&pg={page}',
-        maxPages: 50,
+        maxPages: 2,          // 聚合搜索建议限制页数，否则响应极慢
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'application/json'
         }
     },
     detail: {
         path: '?ac=videolist&ids=',
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'application/json'
         }
     }
@@ -119,29 +124,31 @@ const PLAYER_CONFIG = {
     adFilteringStorage: 'adFilteringEnabled'
 };
 
+// ==========================================
+// 4. 安全与错误处理
+// ==========================================
+
 const ERROR_MESSAGES = {
-    NETWORK_ERROR: '网络连接错误，请检查网络设置',
-    TIMEOUT_ERROR: '请求超时，服务器响应时间过长',
-    API_ERROR: 'API接口返回错误，请尝试更换数据源',
-    PLAYER_ERROR: '播放器加载失败，请尝试其他视频源',
-    UNKNOWN_ERROR: '发生未知错误，请刷新页面重试'
+    NETWORK_ERROR: '网络连接错误，请检查代理设置',
+    TIMEOUT_ERROR: '请求超时，该源响应较慢',
+    API_ERROR: '接口异常，请尝试切换搜索源',
+    PLAYER_ERROR: '视频加载失败，请尝试其他线路'
 };
 
 const SECURITY_CONFIG = {
     enableXSSProtection: true,
     sanitizeUrls: true,
-    maxQueryLength: 100
+    maxQueryLength: 50       // 限制搜索长度防止恶意注入
 };
 
 const CUSTOM_API_CONFIG = {
     separator: ',',
     maxSources: 5,
     testTimeout: 5000,
-    namePrefix: 'Custom-',
+    namePrefix: '自定义-',
     validateUrl: true,
     cacheResults: true,
-    cacheExpiry: 5184000000,
-    adultPropName: 'isAdult'
+    cacheExpiry: 5184000000
 };
 
 const HIDE_BUILTIN_ADULT_APIS = false;
