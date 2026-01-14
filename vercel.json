@@ -3,12 +3,8 @@
   "name": "libretv",
   "rewrites": [
     {
-      "source": "/proxy/(https?://:url*)",
-      "destination": "https://:url*"
-    },
-    {
-      "source": "/proxy/(http?://:url*)",
-      "destination": "http://:url*"
+      "source": "/proxy/:url(.*)",
+      "destination": ":url"
     }
   ],
   "headers": [
